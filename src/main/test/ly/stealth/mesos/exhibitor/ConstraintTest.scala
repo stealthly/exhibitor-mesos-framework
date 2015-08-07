@@ -21,9 +21,16 @@ package ly.stealth.mesos.exhibitor
 import org.junit.Assert._
 import org.junit.Test
 
+import scala.collection.Map
 import scala.util.{Failure, Try}
 
-class ConstraintTest {
+private case class TestConstrained(c: Map[String, List[Constraint]], attributes: Map[String, String]) extends Constrained {
+  override def constraints: Map[String, List[Constraint]] = c
+
+  override def attribute(name: String): Option[String] = attributes.get(name)
+}
+
+class ConstraintTest extends MesosTestCase {
   @Test
   def parse() {
     val like = Constraint("like:1").asInstanceOf[Constraint.Like]
@@ -155,5 +162,26 @@ class ConstraintTest {
 
     assertFalse(groupBy2.matches("1", List("1", "1", "2")))
     assertTrue(groupBy2.matches("2", List("1", "1", "2")))
+  }
+
+  @Test
+  def matchesAttributes() {
+    val task1 = TestConstrained(Map("rack" -> List(Constraint("like:1-.*"))), Map("rack" -> "1-1"))
+
+    val result1 = new Constraints[TestConstrained] {
+      override def tasks: Traversable[TestConstrained] = List(task1)
+    }.checkConstraints(offer(attributes = "rack=1-1"), task1)
+    assertEquals(None, result1)
+
+    val result2 = new Constraints[TestConstrained] {
+      override def tasks: Traversable[TestConstrained] = List(task1)
+    }.checkConstraints(offer(attributes = "rack=2-1"), task1)
+    assertEquals(Some("rack doesn't match like:1-.*"), result2)
+
+    val task2 = TestConstrained(Map("floor" -> List(Constraint("unique"))), Map("rack" -> "1-1", "floor" -> "1"))
+    val result3 = new Constraints[TestConstrained] {
+      override def tasks: Traversable[TestConstrained] = List(task2)
+    }.checkConstraints(offer(attributes = "floor=1"), task2)
+    assertEquals(Some("floor doesn't match unique"), result3)
   }
 }

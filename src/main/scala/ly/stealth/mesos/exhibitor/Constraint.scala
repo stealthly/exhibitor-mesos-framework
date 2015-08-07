@@ -20,7 +20,10 @@ package ly.stealth.mesos.exhibitor
 
 import java.util.regex.{Pattern, PatternSyntaxException}
 
+import org.apache.mesos.Protos.Offer
+
 import scala.util.Try
+import scala.collection.JavaConversions._
 
 trait Constraint {
   def matches(value: String, values: List[String] = Nil): Boolean
@@ -96,4 +99,34 @@ object Constraint {
     override def toString: String = "groupBy" + (if (groups > 1) s":$groups" else "")
   }
 
+}
+
+trait Constraints[T <: Constrained] {
+  def checkConstraints(offer: Offer, task: T): Option[String] = {
+    val offerAttributes = offer.getAttributesList.toList.foldLeft(Map("hostname" -> offer.getHostname)) { case (attributes, attribute) =>
+      if (attribute.hasText) attributes.updated(attribute.getName, attribute.getText.getValue)
+      else attributes
+    }
+
+    for ((name, constraints) <- task.constraints) {
+      for (constraint <- constraints) {
+        offerAttributes.get(name) match {
+          case Some(attribute) => if (!constraint.matches(attribute, otherTasksAttributes(name))) return Some(s"$name doesn't match $constraint")
+          case None => return Some(s"no $name")
+        }
+      }
+    }
+
+    None
+  }
+
+  private def otherTasksAttributes(name: String): List[String] = tasks.flatMap(_.attribute(name)).toList
+
+  def tasks: Traversable[T]
+}
+
+trait Constrained {
+  def constraints: scala.collection.Map[String, List[Constraint]]
+
+  def attribute(name: String): Option[String]
 }
