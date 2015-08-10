@@ -20,6 +20,7 @@ package ly.stealth.mesos.exhibitor
 
 import java.util.regex.{Pattern, PatternSyntaxException}
 
+import org.apache.log4j.Logger
 import org.apache.mesos.Protos.Offer
 
 import scala.util.Try
@@ -102,6 +103,8 @@ object Constraint {
 }
 
 trait Constraints[T <: Constrained] {
+  private val logger = Logger.getLogger(this.getClass)
+
   def checkConstraints(offer: Offer, task: T): Option[String] = {
     val offerAttributes = offer.getAttributesList.toList.foldLeft(Map("hostname" -> offer.getHostname)) { case (attributes, attribute) =>
       if (attribute.hasText) attributes.updated(attribute.getName, attribute.getText.getValue)
@@ -111,8 +114,14 @@ trait Constraints[T <: Constrained] {
     for ((name, constraints) <- task.constraints) {
       for (constraint <- constraints) {
         offerAttributes.get(name) match {
-          case Some(attribute) => if (!constraint.matches(attribute, otherTasksAttributes(name))) return Some(s"$name doesn't match $constraint")
-          case None => return Some(s"no $name")
+          case Some(attribute) =>
+            if (!constraint.matches(attribute, otherTasksAttributes(name))) {
+              logger.debug(s"Attribute $name doesn't match $constraint")
+              return Some(s"$name doesn't match $constraint")
+            }
+          case None =>
+            logger.debug(s"Offer does not contain $name attribute")
+            return Some(s"no $name")
         }
       }
     }
