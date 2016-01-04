@@ -1,0 +1,533 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Exhibitor Mesos Framework by stealthly</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-dark.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/stealthly/exhibitor-mesos-framework">View On GitHub</a></li>
+          <li class="downloads"><a href="https://github.com/stealthly/exhibitor-mesos-framework/zipball/master">ZIP</a></li>
+          <li class="downloads"><a href="https://github.com/stealthly/exhibitor-mesos-framework/tarball/master">TAR</a></li>
+          <li class="title">DOWNLOADS</li>
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Exhibitor Mesos Framework</h1>
+          <p>Exhibitor on Apache Mesos for reliably running Zookeeper on Mesos</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/stealthly">stealthly</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h1>
+<a id="exhibitor-mesos-framework" class="anchor" href="#exhibitor-mesos-framework" aria-hidden="true"><span class="octicon octicon-link"></span></a>Exhibitor Mesos Framework</h1>
+
+<p>This is still being developed actively and is not yet alpha. <a href="https://github.com/CiscoCloud/exhibitor-mesos-framework/issues">Open issues here</a>.</p>
+
+<p><a href="#prerequisites">Prerequisites</a>  </p>
+
+<ul>
+<li>
+<a href="#environment-configuration">Environment Configuration</a><br>
+</li>
+<li>
+<a href="#scheduler-configuration">Scheduler Configuration</a><br>
+</li>
+<li>
+<a href="#run-the-scheduler">Run the scheduler</a><br>
+</li>
+<li>
+<a href="#quick-start">Quick start</a><br>
+</li>
+</ul>
+
+<p><a href="#typical-operations">Typical Operations</a>  </p>
+
+<ul>
+<li>
+<a href="https://github.com/CiscoCloud/exhibitor-mesos-framework/tree/master/src/marathon">Running scheduler in Marathon</a><br>
+</li>
+<li><a href="#changing-the-location-of-zookeeper-data">Changing the location of Zookeeper data</a></li>
+<li><a href="#shutting-down-framework">Shutting down framework</a></li>
+</ul>
+
+<p><a href="#navigating-the-cli">Navigating the CLI</a>  </p>
+
+<ul>
+<li>
+<a href="#requesting-help">Requesting help</a><br>
+</li>
+<li>
+<a href="#adding-servers-to-the-cluster">Adding servers to the cluster</a><br>
+</li>
+<li>
+<a href="#configuring-servers-in-the-cluster">Configuring servers</a><br>
+</li>
+<li>
+<a href="#starting-servers-in-the-cluster">Starting servers</a><br>
+</li>
+<li>
+<a href="#stopping-servers-in-the-cluster">Stopping servers</a><br>
+</li>
+<li>
+<a href="#removing-servers-from-the-cluster">Removing servers</a><br>
+</li>
+</ul>
+
+<h2>
+<a id="prerequisites" class="anchor" href="#prerequisites" aria-hidden="true"><span class="octicon octicon-link"></span></a>Prerequisites</h2>
+
+<ul>
+<li>Java 7 (or higher)</li>
+<li>Apache Mesos 0.19 or newer</li>
+<li>Exhibitor Standalone jar file (or <code>mvn</code> to build it)</li>
+<li>Zookeeper archive file</li>
+</ul>
+
+<p>Clone and build the project</p>
+
+<pre><code># git clone https://github.com/CiscoCloud/exhibitor-mesos-framework.git
+# cd exhibitor-mesos-framework
+# ./gradlew jar
+</code></pre>
+
+<p>Build Exhibitor Standalone if necessary (<strong>NOTE</strong>: version built with Gradle may be affected by <a href="https://github.com/Netflix/exhibitor/issues/235">this issue</a> so we use <a href="https://github.com/Netflix/exhibitor/wiki/Building-Exhibitor#maven">Maven build</a> in this example):</p>
+
+<pre><code># mkdir tmp-exhibitor &amp;&amp; cd tmp-exhibitor
+# wget https://raw.github.com/Netflix/exhibitor/master/exhibitor-standalone/src/main/resources/buildscripts/standalone/maven/pom.xml
+# mvn clean package
+# cp target/exhibitor-*.jar ..
+# cd .. &amp;&amp; rm -rf tmp-exhibitor
+</code></pre>
+
+<p>Download Apache Zookeeper distribution if you don't have one (or place the archive to the working folder):</p>
+
+<pre><code># wget http://apache.cp.if.ua/zookeeper/zookeeper-3.4.6/zookeeper-3.4.6.tar.gz
+</code></pre>
+
+<p>Download Oracle JDK distribution (or place the archive to the working folder). <strong>NOTE</strong>: please pay attention it MUST be Oracle JDK (not OpenJDK and not JRE) as Exhibitor relies on <code>jps</code> calls:</p>
+
+<pre><code># wget --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u45-b14/jdk-8u45-linux-x64.tar.gz
+</code></pre>
+
+<h2>
+<a id="environment-configuration" class="anchor" href="#environment-configuration" aria-hidden="true"><span class="octicon octicon-link"></span></a>Environment Configuration</h2>
+
+<p>Before running <code>./exhibitor-mesos.sh</code>, set the location of libmesos:</p>
+
+<pre><code># export MESOS_NATIVE_JAVA_LIBRARY=/usr/local/lib/libmesos.so
+</code></pre>
+
+<p>If the host running scheduler has several IP addresses you may also need to</p>
+
+<pre><code># export LIBPROCESS_IP=&lt;IP_ACCESSIBLE_FROM_MASTER&gt;
+</code></pre>
+
+<h2>
+<a id="scheduler-configuration" class="anchor" href="#scheduler-configuration" aria-hidden="true"><span class="octicon octicon-link"></span></a>Scheduler Configuration</h2>
+
+<p>The scheduler is configured through the command line.</p>
+
+<p>Following options are available:</p>
+
+<pre><code>Usage: scheduler [options]
+
+  -m &lt;value&gt; | --master &lt;value&gt;
+        Mesos Master addresses. Required.
+  -a &lt;value&gt; | --api &lt;value&gt;
+        Binding host:port for http/artifact server. Optional if EM_API env is set.
+  -u &lt;value&gt; | --user &lt;value&gt;
+        Mesos user. Required.
+  --framework-name &lt;value&gt;
+        Mesos framework name. Defaults to exhibitor. Optional
+  --framework-timeout &lt;value&gt;
+        Mesos framework failover timeout. Allows to recover from failure before killing running tasks. Should be a parsable Scala Duration value. Defaults to 30 days. Optional
+  --storage &lt;value&gt;
+        Storage for cluster state. Examples: file:exhibitor-mesos.json; zk:master:2181/exhibitor-mesos. Defaults to file:exhibitor-mesos.json. Optional.
+  --ensemble-modify-retries &lt;value&gt;
+        Number of retries to modify (add/remove server) ensemble. Defaults to 60. Optional.
+  --ensemble-modify-backoff &lt;value&gt;
+        Backoff between retries to modify (add/remove server) ensemble in milliseconds. Defaults to 1000. Optional.
+  -d &lt;value&gt; | --debug &lt;value&gt;
+        Debug mode. Optional. Defaults to false.
+</code></pre>
+
+<h2>
+<a id="run-the-scheduler" class="anchor" href="#run-the-scheduler" aria-hidden="true"><span class="octicon octicon-link"></span></a>Run the scheduler</h2>
+
+<p>Start the Exhibitor scheduler using this command:</p>
+
+<pre><code># ./exhibitor-mesos.sh scheduler --master master:5050 --user root --api http://master:6666
+</code></pre>
+
+<h2>
+<a id="quick-start" class="anchor" href="#quick-start" aria-hidden="true"><span class="octicon octicon-link"></span></a>Quick start</h2>
+
+<p>In order not to pass the API url to each CLI call lets export the URL as follows:</p>
+
+<pre><code># export EM_API=http://master:6666
+</code></pre>
+
+<p>First lets start 1 Exhibitor with the default settings. Further in the readme you can see how to change these from the defaults.</p>
+
+<pre><code># ./exhibitor-mesos.sh add 0
+Added servers 0
+
+cluster:
+  server:
+    id: 0
+    state: Added
+    constraints: hostname=unique
+    exhibitor config:
+    shared config overrides:
+    cpu: 0.2
+    mem: 256.0
+    sharedConfigChangeBackoff: 10000
+    port: auto
+</code></pre>
+
+<p>You now have a cluster with 1 server that is not started.</p>
+
+<pre><code># ./exhibitor-mesos.sh status
+cluster:
+  server:
+    id: 0
+    state: Added
+    constraints: hostname=unique
+    exhibitor config:
+    shared config overrides:
+    cpu: 0.2
+    mem: 256.0
+    sharedConfigChangeBackoff: 10000
+    port: auto
+</code></pre>
+
+<p>Each server requires some basic configuration.</p>
+
+<pre><code># ./exhibitor-mesos.sh config 0 --configtype zookeeper --zkconfigconnect 192.168.3.1:2181 --zkconfigzpath /exhibitor/config --zookeeper-install-directory /tmp/zookeeper --zookeeper-data-directory /tmp/zkdata
+Updated configuration for servers 0
+
+cluster:
+  server:
+    id: 0
+    state: Added
+    constraints: hostname=unique
+    exhibitor config:
+      zkconfigzpath: /exhibitor/config
+      zkconfigconnect: 192.168.3.1:2181
+      configtype: zookeeper
+    shared config overrides:
+      zookeeper-install-directory: /tmp/zookeeper
+      zookeeper-data-directory: /tmp/zkdata
+    cpu: 0.2
+    mem: 256.0
+    sharedConfigChangeBackoff: 10000
+    port: auto
+</code></pre>
+
+<p>Now lets start the server. This call to CLI will block until the server is actually started but will wait no more than a configured timeout. Timeout can be passed via <code>--timeout</code> flag and defaults to <code>60s</code>. If a timeout of <code>0ms</code> is passed CLI won't wait for servers to start at all and will reply with "Scheduled servers ..." message.</p>
+
+<pre><code># ./exhibitor-mesos.sh start 0 --timeout 30s
+Started servers 0
+
+cluster:
+  server:
+    id: 0
+    state: Running
+    constraints: hostname=unique
+    exhibitor config:
+      zkconfigzpath: /exhibitor/config
+      zkconfigconnect: 192.168.3.1:2181
+      configtype: zookeeper
+    shared config overrides:
+      zookeeper-install-directory: /tmp/zookeeper
+      zookeeper-data-directory: /tmp/zkdata
+    cpu: 0.2
+    mem: 256.0
+    sharedConfigChangeBackoff: 10000
+    port: auto
+</code></pre>
+
+<p>Now as we don't know where the server we may ask for the cluster status to see where the endpoint is.</p>
+
+<pre><code># ./exhibitor-mesos.sh status
+cluster:
+  server:
+    id: 0
+    state: Running
+    endpoint: http://slave0:31000/exhibitor/v1/ui/index.html
+    constraints: hostname=unique
+    exhibitor config:
+      zkconfigzpath: /exhibitor/config
+      zkconfigconnect: 192.168.3.1:2181
+      port: 31000
+      configtype: zookeeper
+    shared config overrides:
+      zookeeper-install-directory: /tmp/zookeeper
+      zookeeper-data-directory: /tmp/zkdata
+    cpu: 0.2
+    mem: 256.0
+    sharedConfigChangeBackoff: 10000
+    port: auto
+    exhibitor cluster view:
+          [slave0, latent, 0, F]
+</code></pre>
+
+<p>(NOTE: with <code>exhibitor cluster view</code> section you can reason about underlying Exhibitor and Zookeeper ensemble.
+Since there is some synchronisation lag in Exhibitor when the node is added/removed, the view of the cluster may 
+be different from different nodes, that's why this section is shown under all nodes that are in the RUNNING state)</p>
+
+<p>By now you should have a single Exhibitor instance running. Here's how you stop it:</p>
+
+<pre><code># ./exhibitor-mesos.sh stop 0
+Stopped servers 0
+</code></pre>
+
+<p>If you want to remove the server from the cluster completely you may skip <code>stop</code> step and call <code>remove</code> directly (this will call <code>stop</code> under the hood anyway):</p>
+
+<pre><code>./exhibitor-mesos.sh remove 0
+Removed servers 0
+</code></pre>
+
+<h1>
+<a id="typical-operations" class="anchor" href="#typical-operations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Typical Operations</h1>
+
+<h2>
+<a id="changing-the-location-of-zookeeper-data" class="anchor" href="#changing-the-location-of-zookeeper-data" aria-hidden="true"><span class="octicon octicon-link"></span></a>Changing the location of Zookeeper data</h2>
+
+<pre><code># ./exhibitor-mesos.sh stop 0
+Stopped servers 0
+
+# ./exhibitor-mesos.sh config 0 --zookeeper-data-directory /tmp/exhibitor_zkdata
+Updated configuration for servers 0
+
+cluster:
+  server:
+    id: 0
+    state: Added
+    constraints: hostname=unique
+    exhibitor config:
+      zkconfigzpath: /exhibitor/config
+      zkconfigconnect: 192.168.3.1:2181
+      configtype: zookeeper
+    shared config overrides:
+      zookeeper-install-directory: /tmp/zookeeper
+      zookeeper-data-directory: /tmp/exhibitor_zkdata
+    cpu: 0.2
+    mem: 256.0
+    sharedConfigChangeBackoff: 10000
+    port: auto
+</code></pre>
+
+<h2>
+<a id="shutting-down-framework" class="anchor" href="#shutting-down-framework" aria-hidden="true"><span class="octicon octicon-link"></span></a>Shutting down framework</h2>
+
+<p>While the scheduler has a shutdown hook it doesn't actually finish the framework. To shutdown the framework completely (e.g. unregister it in Mesos) you may shoot a <code>POST</code> to <code>/teardown</code> specifying the framework id to shutdown:</p>
+
+<pre><code># curl -d frameworkId=20150807-094500-84125888-5050-14187-0005 -X POST http://master:5050/teardown
+</code></pre>
+
+<h1>
+<a id="navigating-the-cli" class="anchor" href="#navigating-the-cli" aria-hidden="true"><span class="octicon octicon-link"></span></a>Navigating the CLI</h1>
+
+<h2>
+<a id="requesting-help" class="anchor" href="#requesting-help" aria-hidden="true"><span class="octicon octicon-link"></span></a>Requesting help</h2>
+
+<pre><code># ./exhibitor-mesos.sh help
+Usage: &lt;command&gt;
+
+Commands:
+  help       - print this message.
+  help [cmd] - print command-specific help.
+  scheduler  - start scheduler.
+  status     - print cluster status.
+  add        - add servers to cluster.
+  config     - configure servers in cluster.
+  start      - start servers in cluster.
+  stop       - stop servers in cluster.
+  remove     - remove servers in cluster.
+</code></pre>
+
+<h2>
+<a id="adding-servers-to-the-cluster" class="anchor" href="#adding-servers-to-the-cluster" aria-hidden="true"><span class="octicon octicon-link"></span></a>Adding servers to the cluster</h2>
+
+<pre><code># ./exhibitor-mesos.sh help add
+Usage: add &lt;id&gt; [options]
+
+  -c &lt;value&gt; | --cpu &lt;value&gt;
+        CPUs for server. Optional.
+  -m &lt;value&gt; | --mem &lt;value&gt;
+        Memory for server. Optional.
+  --constraints &lt;value&gt;
+        Constraints (hostname=like:master,rack=like:1.*). See below. Defaults to 'hostname=unique'. Optional.
+  -b &lt;value&gt; | --configchangebackoff &lt;value&gt;
+        Backoff between checks whether the shared configuration changed in milliseconds. Defaults to 10000. Optional.
+  -a &lt;value&gt; | --api &lt;value&gt;
+        Binding host:port for http/artifact server. Optional if EM_API env is set.
+  --port &lt;value&gt;
+        Port ranges to accept, when offer is issued. Optional
+
+constraint examples:
+  like:slave0    - value equals 'slave0'
+  unlike:slave0  - value is not equal to 'slave0'
+  like:slave.*   - value starts with 'slave'
+  unique         - all values are unique
+  cluster        - all values are the same
+  cluster:slave0 - value equals 'slave0'
+  groupBy        - all values are the same
+  groupBy:3      - all values are within 3 different groups
+</code></pre>
+
+<h2>
+<a id="configuring-servers-in-the-cluster" class="anchor" href="#configuring-servers-in-the-cluster" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configuring servers in the cluster</h2>
+
+<p><strong>NOTE</strong>: this section is not final and some configurations may change.</p>
+
+<pre><code># ../exhibitor-mesos.sh help config
+Usage: config &lt;id&gt; [options]
+
+  -a &lt;value&gt; | --api &lt;value&gt;
+        Binding host:port for http/artifact server. Optional if EM_API env is set.
+  --configtype &lt;value&gt;
+        Config type to use: s3 or zookeeper. Optional.
+  --configcheckms &lt;value&gt;
+        Period (ms) to check for shared config updates. Optional.
+  --defaultconfig &lt;value&gt;
+        Full path to a file that contains initial/default values for Exhibitor/ZooKeeper config values. The file is a standard property file. Optional.
+  --headingtext &lt;value&gt;
+        Extra text to display in UI header. Optional.
+  --hostname &lt;value&gt;
+        Hostname to use for this JVM. Optional.
+  --jquerystyle &lt;value&gt;
+        Styling used for the JQuery-based UI. Optional.
+  --loglines &lt;value&gt;
+        Max lines of logging to keep in memory for display. Default is 1000. Optional.
+  --nodemodification &lt;value&gt;
+        If true, the Explorer UI will allow nodes to be modified (use with caution). Default is true. Optional.
+  --prefspath &lt;value&gt;
+        Certain values (such as Control Panel values) are stored in a preferences file. By default, Preferences.userRoot() is used. Optional.
+  --servo &lt;value&gt;
+        true/false (default is false). If enabled, ZooKeeper will be queried once a minute for its state via the 'mntr' four letter word (this requires ZooKeeper 3.4.x+). Servo will be used to publish this data via JMX. Optional.
+  --timeout &lt;value&gt;
+        Connection timeout (ms) for ZK connections. Default is 30000. Optional.
+  --s3credentials &lt;value&gt;
+        Credentials to use for s3backup or s3config. Optional.
+  --s3region &lt;value&gt;
+        Region for S3 calls (e.g. "eu-west-1"). Optional.
+  --s3config &lt;value&gt;
+        The bucket name and key to store the config (s3credentials may be provided as well). Argument is [bucket name]:[key]. Optional.
+  --s3configprefix &lt;value&gt;
+        When using AWS S3 shared config files, the prefix to use for values such as locks. Optional.
+  --zkconfigconnect &lt;value&gt;
+        The initial connection string for ZooKeeper shared config storage. E.g: host1:2181,host2:2181... Optional.
+  --zkconfigexhibitorpath &lt;value&gt;
+        Used if the ZooKeeper shared config is also running Exhibitor. This is the URI path for the REST call. The default is: /. Optional.
+  --zkconfigexhibitorport &lt;value&gt;
+        Used if the ZooKeeper shared config is also running Exhibitor. This is the port that Exhibitor is listening on. IMPORTANT: if this value is not set it implies that Exhibitor is not being used on the ZooKeeper shared config. Optional.
+  --zkconfigpollms &lt;value&gt;
+        The period in ms to check for changes in the config ensemble. The default is: 10000. Optional.
+  --zkconfigretry &lt;value&gt;
+        The retry values to use in the form sleep-ms:retry-qty. The default is: 1000:3. Optional.
+  --zkconfigzpath &lt;value&gt;
+        The base ZPath that Exhibitor should use. E.g: /exhibitor/config. Optional.
+  --filesystembackup &lt;value&gt;
+        If true, enables file system backup of ZooKeeper log files. Optional.
+  --s3backup &lt;value&gt;
+        If true, enables AWS S3 backup of ZooKeeper log files (s3credentials may be provided as well). Optional.
+  --aclid &lt;value&gt;
+        Enable ACL for Exhibitor's internal ZooKeeper connection. This sets the ACL's ID. Optional.
+  --aclperms &lt;value&gt;
+        Enable ACL for Exhibitor's internal ZooKeeper connection. This sets the ACL's Permissions - a comma list of possible permissions. If this isn't specified the permission is set to ALL. Values: read, write, create, delete, admin. Optional.
+  --aclscheme &lt;value&gt;
+        Enable ACL for Exhibitor's internal ZooKeeper connection. This sets the ACL's Scheme. Optional.
+  --log-index-directory &lt;value&gt;
+        The directory where indexed Zookeeper logs should be kept. Optional.
+  --zookeeper-install-directory &lt;value&gt;
+        The directory where the Zookeeper server is installed. Optional.
+  --zookeeper-data-directory &lt;value&gt;
+        The directory where Zookeeper snapshot data is stored. Optional.
+  --zookeeper-log-directory &lt;value&gt;
+        The directory where Zookeeper transaction log data is stored. Optional.
+  --backup-extra &lt;value&gt;
+        Backup extra shared config. Optional.
+  --zoo-cfg-extra &lt;value&gt;
+        Any additional properties to be added to the zoo.cfg file in form: key1\\=value1&amp;key2\\=value2. Optional.
+  --java-environment &lt;value&gt;
+        Script to write as the 'java.env' file which gets executed as a part of Zookeeper start script. Optional.
+  --log4j-properties &lt;value&gt;
+        Contents of the log4j.properties file. Optional.
+  --client-port &lt;value&gt;
+        The port that clients use to connect to Zookeeper. Defaults to 2181. Optional.
+  --connect-port &lt;value&gt;
+        The port that other Zookeeper instances use to connect to Zookeeper. Defaults to 2888. Optional.
+  --election-port &lt;value&gt;
+        The port that other Zookeeper instances use for election. Defaults to 3888. Optional.
+  --check-ms &lt;value&gt;
+        The number of milliseconds between live-ness checks on Zookeeper server. Defaults to 30000. Optional.
+  --cleanup-period-ms &lt;value&gt;
+        The number of milliseconds between Zookeeper log file cleanups. Defaults to 43200000. Optional.
+  --cleanup-max-files &lt;value&gt;
+        The max number of Zookeeper log files to keep when cleaning up. Defaults to 3. Optional.
+  --backup-max-store-ms &lt;value&gt;
+        Backup max store ms shared config. Optional.
+  --backup-period-ms &lt;value&gt;
+        Backup period ms shared config. Optional.
+  --port &lt;value&gt;
+        Port ranges to accept, when offer is issued. Optional
+</code></pre>
+
+<h2>
+<a id="starting-servers-in-the-cluster" class="anchor" href="#starting-servers-in-the-cluster" aria-hidden="true"><span class="octicon octicon-link"></span></a>Starting servers in the cluster</h2>
+
+<pre><code># ./exhibitor-mesos.sh help start
+Usage: start &lt;id&gt; [options]
+
+  -a &lt;value&gt; | --api &lt;value&gt;
+        Binding host:port for http/artifact server. Optional if EM_API env is set.
+</code></pre>
+
+<h2>
+<a id="stopping-servers-in-the-cluster" class="anchor" href="#stopping-servers-in-the-cluster" aria-hidden="true"><span class="octicon octicon-link"></span></a>Stopping servers in the cluster</h2>
+
+<pre><code># ./exhibitor-mesos.sh help stop
+Usage: stop &lt;id&gt; [options]
+
+  -a &lt;value&gt; | --api &lt;value&gt;
+        Binding host:port for http/artifact server. Optional if EM_API env is set.
+</code></pre>
+
+<h2>
+<a id="removing-servers-from-the-cluster" class="anchor" href="#removing-servers-from-the-cluster" aria-hidden="true"><span class="octicon octicon-link"></span></a>Removing servers from the cluster</h2>
+
+<pre><code># ./exhibitor-mesos.sh help remove
+Usage: remove &lt;id&gt; [options]
+
+  -a &lt;value&gt; | --api &lt;value&gt;
+        Binding host:port for http/artifact server. Optional if EM_API env is set.
+</code></pre>
+      </section>
+
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
