@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-object Scheduler extends org.apache.mesos.Scheduler {
+object Scheduler extends org.apache.mesos.Scheduler with Constraints[ExhibitorServer] {
   private val logger = Logger.getLogger(this.getClass)
   private val ensembleLock = new Object()
 
@@ -102,6 +102,8 @@ object Scheduler extends org.apache.mesos.Scheduler {
     logger.info("[executorLost] executor:" + Str.id(executorId.getValue) + " slave:" + Str.id(slaveId.getValue) + " status:" + status)
   }
 
+  override def tasks: Traversable[ExhibitorServer] = cluster.servers
+
   private def onResourceOffers(offers: List[Offer]) {
     offers.foreach { offer =>
       acceptOffer(offer).foreach { declineReason =>
@@ -119,12 +121,12 @@ object Scheduler extends org.apache.mesos.Scheduler {
       case Nil => Some("all servers are running")
       case servers =>
         val reason = servers.flatMap { server =>
-          server.matches(offer, otherTasksAttributes) match {
+          checkConstraints(offer, server).orElse(server.matches(offer) match {
             case Some(declineReason) => Some(s"server ${server.id}: $declineReason")
             case None =>
               launchTask(server, offer)
               return None
-          }
+          })
         }.mkString(", ")
 
         if (reason.isEmpty) None else Some(reason)
@@ -321,15 +323,6 @@ object Scheduler extends org.apache.mesos.Scheduler {
     }
 
     tryGetConfig(retries, 1000)
-  }
-
-  private[exhibitor] def otherTasksAttributes(name: String): List[String] = {
-    def value(server: ExhibitorServer, name: String): Option[String] = {
-      if (name == "hostname") Option(server.config.hostname)
-      else server.task.attributes.get(name)
-    }
-
-    cluster.servers.filter(_.task != null).flatMap(value(_, name)).toList
   }
 
   private[exhibitor] val RECONCILE_DELAY = 10 seconds

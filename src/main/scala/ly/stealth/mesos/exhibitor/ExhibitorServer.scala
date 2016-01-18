@@ -60,13 +60,18 @@ object TaskConfig {
   }
 }
 
-case class ExhibitorServer(id: String) {
+case class ExhibitorServer(id: String) extends Constrained {
   private[exhibitor] var task: ExhibitorServer.Task = null
 
   val config = TaskConfig(new mutable.HashMap[String, String](), new mutable.HashMap[String, String](), id)
 
-  private[exhibitor] val constraints: mutable.Map[String, List[Constraint]] = new mutable.HashMap[String, List[Constraint]]
   private[exhibitor] var state: ExhibitorServer.State = ExhibitorServer.Added
+  val constraints: mutable.Map[String, List[Constraint]] = new mutable.HashMap[String, List[Constraint]]
+
+  override def attribute(name: String): Option[String] = {
+    if (name == "hostname") Some(config.hostname)
+    else task.attributes.get(name)
+  }
 
   def createTask(offer: Offer): TaskInfo = {
     val port = getPort(offer).getOrElse(throw new IllegalStateException("No suitable port"))
@@ -86,7 +91,7 @@ case class ExhibitorServer(id: String) {
     )).build
   }
 
-  def matches(offer: Offer, otherAttributes: String => List[String] = _ => Nil): Option[String] = {
+  def matches(offer: Offer): Option[String] = {
     val offerResources = offer.getResourcesList.toList.map(res => res.getName -> res).toMap
 
     if (getPort(offer).isEmpty) return Some("no suitable port")
@@ -99,20 +104,6 @@ case class ExhibitorServer(id: String) {
     offerResources.get("mem") match {
       case Some(memResource) => if (memResource.getScalar.getValue < config.mem) return Some(s"mem ${memResource.getScalar.getValue} < ${config.mem}")
       case None => return Some("no mem")
-    }
-
-    val offerAttributes = offer.getAttributesList.toList.foldLeft(Map("hostname" -> offer.getHostname)) { case (attributes, attribute) =>
-      if (attribute.hasText) attributes.updated(attribute.getName, attribute.getText.getValue)
-      else attributes
-    }
-
-    for ((name, constraints) <- constraints) {
-      for (constraint <- constraints) {
-        offerAttributes.get(name) match {
-          case Some(attribute) => if (!constraint.matches(attribute, otherAttributes(name))) return Some(s"$name doesn't match $constraint")
-          case None => return Some(s"no $name")
-        }
-      }
     }
 
     None
